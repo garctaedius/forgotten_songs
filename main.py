@@ -36,5 +36,6 @@ def test_random_song():
 # Cool! Now: fix the hot100 df to have one row per song id and somehow calculate billboard score
 # Then: Find the songs from spotify and create some sort of object that stores the plays and checks that the right track was found
 # Then compare the spotify plays with the billboard score (billboard_score/spotify_plays?) to find the most forgotten songs!
+# Maybe loop though nineties.songid.unique() but actually look at the whole hot100 to find the songs that had continued popularity from the 80s and into the 200s
 
 pass
