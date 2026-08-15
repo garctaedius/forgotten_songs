@@ -2,7 +2,8 @@ import pandas as pd
 from math import floor, ceil
 
 # Gather hot100 data
-hot100 = pd.read_csv("data\\hot_100.csv", parse_dates=["chart_date", "chart_debut"])
+hot100 = pd.read_csv("data\\hot_100.csv", parse_dates=["chart_date", "chart_debut"], dtype={"previous_week": "Int16"})
+hot100["previous_week"] = hot100.previous_week.fillna(0)  # simpler than having na values
 nineties = hot100[("1990-01-01" < hot100.chart_date) & (hot100.chart_date< "2000-01-01")].sort_values("chart_date")
 
 def score(chart_position: int) -> float:
@@ -23,8 +24,24 @@ def bonus(n: int) -> float:
 
 # Calculate score for each song in the nineties
 song_id = 'SmoothSantana Featuring Rob Thomas'
-occurances = nineties[nineties.song_id==song_id].copy()
+occurances = hot100[hot100.song_id==song_id].copy()
 occurances["score"] = occurances.chart_position.apply(score)
+
+streaks = []
+current_streak = None
+for chart in occurances[["chart_position", "previous_week"]].itertuples():
+    if chart.chart_position > 10 or chart.chart_position != chart.previous_week:  # type: ignore
+        if current_streak is not None:
+            # streak ended
+            streaks.append(current_streak)
+            current_streak = None
+        continue
+
+    if current_streak is None:
+        current_streak = (chart.chart_position, 2)
+    else:
+        current_streak = (chart.chart_position, current_streak[1]+1)
+
 occurances["bonus"] = 0
 
 
