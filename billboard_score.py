@@ -1,17 +1,37 @@
 from math import floor, ceil
 from typing import cast
+import pickle
 
 import pandas as pd
 
 from utils import Streak
 
 
-def score_songs(full_chart: pd.DataFrame, chart_to_score: pd.DataFrame | None = None):
+def score_songs(full_chart: pd.DataFrame, chart_to_score: pd.DataFrame | None = None) -> dict[str, float]:
     if chart_to_score is None:
         chart_to_score = full_chart
 
+    # Check if a cached version is available
+    try:
+        with open("caches\\scores", "rb") as f:
+            scores = pickle.load(f)
+        desired_song_ids = chart_to_score.song_id.unique()
+        if desired_song_ids.isin(scores).all():  # type: ignore
+            # Filter away potentially uninteresting songs
+            scores = {song_id: score for song_id, score in scores.items() if song_id in desired_song_ids}
+            return scores
+        else:
+            raise (KeyError)
+    except:
+        print("Could not find cached scores. Calculating scores...")
+
     song_scorer = BillboardScorer()
-    song_scorer.score_songs(full_chart, chart_to_score)
+    scores = song_scorer.score_songs(full_chart, chart_to_score)
+
+    with open("caches\\scores", "wb") as f:
+        pickle.dump(scores, f)
+
+    return scores
 
 
 class BillboardScorer():
@@ -30,16 +50,29 @@ class BillboardScorer():
             for i in range(1, 11)
         }
 
-    def score_songs(self, full_chart: pd.DataFrame, chart_to_score: pd.DataFrame):
-        song_id = 'SmoothSantana Featuring Rob Thomas'
-        occurrences = full_chart[full_chart.song_id == song_id].copy()
-        occurrences["score"] = occurrences.chart_position.apply(self._chart_score)
-        full_chart_score = occurrences.score.sum()
+    def score_songs(self, full_chart: pd.DataFrame, chart_to_score: pd.DataFrame) -> dict[str, float]:
+        scores: dict[str, float] = {}
 
-        streaks = self._get_song_streaks(occurrences)
+        # Filter away irrelevant songs
+        full_chart = full_chart[full_chart.song_id.isin(chart_to_score.song_id.unique())].copy()
+        full_chart["computed_score"] = full_chart.chart_position.apply(self._chart_score)
 
-        song_bonus = sum([self._bonus(streak.n_weeks, streak.chart_pos) for streak in streaks])
-        total_score = full_chart_score + song_bonus
+        base_scores = full_chart.groupby("song_id")["computed_score"].sum()
+
+        song_bonuses = {}
+        for song_id, occurrences in full_chart.groupby("song_id"):
+            streaks = self._get_song_streaks(occurrences)
+            song_bonus = sum(
+                self._bonus(streak.n_weeks, streak.chart_pos) for streak in streaks
+            )
+            song_bonuses[song_id] = song_bonus
+
+        scores = {
+            song_id: base_scores[song_id] + song_bonuses[song_id]
+            for song_id in chart_to_score.song_id.unique()
+        }
+
+        return scores
 
     def _chart_score(self, chart_position: int) -> float:
         return self._raw_score(chart_position) * self._score_scale_factor
