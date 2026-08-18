@@ -7,31 +7,33 @@ import pandas as pd
 from utils import Streak
 
 
-def score_songs(full_chart: pd.DataFrame, chart_to_score: pd.DataFrame | None = None) -> dict[str, float]:
+def score_songs(full_chart: pd.DataFrame, chart_to_score: pd.DataFrame | None = None) -> pd.DataFrame:
     if chart_to_score is None:
         chart_to_score = full_chart
 
     # Check if a cached version is available
     try:
-        with open("caches\\scores", "rb") as f:
-            scores = pickle.load(f)
+        with open("caches\\scored_songs", "rb") as f:
+            scored_songs = pickle.load(f)
+
+        # Check that the songs to score are indeed in the cached df
         desired_song_ids = chart_to_score.song_id.unique()
-        if desired_song_ids.isin(scores).all():  # type: ignore
+        if desired_song_ids.isin(scored_songs.index).all():  # type: ignore
             # Filter away potentially uninteresting songs
-            scores = {song_id: score for song_id, score in scores.items() if song_id in desired_song_ids}
-            return scores
+            print("\tFound cached version")
+            return scored_songs.loc[desired_song_ids]
         else:
-            raise (KeyError)
+            raise KeyError
     except:
-        print("Could not find cached scores. Calculating scores...")
+        print("\tCould not find cached scores. Calculating scores...")
 
     song_scorer = BillboardScorer()
-    scores = song_scorer.score_songs(full_chart, chart_to_score)
+    scored_songs = song_scorer.score_songs(full_chart, chart_to_score)
 
-    with open("caches\\scores", "wb") as f:
-        pickle.dump(scores, f)
+    with open("caches\\scored_songs", "wb") as f:
+        pickle.dump(scored_songs, f)
 
-    return scores
+    return scored_songs
 
 
 class BillboardScorer():
@@ -50,15 +52,15 @@ class BillboardScorer():
             for i in range(1, 11)
         }
 
-    def score_songs(self, full_chart: pd.DataFrame, chart_to_score: pd.DataFrame) -> dict[str, float]:
-        scores: dict[str, float] = {}
-
+    def score_songs(self, full_chart: pd.DataFrame, chart_to_score: pd.DataFrame) -> pd.DataFrame:
         # Filter away irrelevant songs
         full_chart = full_chart[full_chart.song_id.isin(chart_to_score.song_id.unique())].copy()
         full_chart["computed_score"] = full_chart.chart_position.apply(self._chart_score)
 
+        # Calculate base score
         base_scores = full_chart.groupby("song_id")["computed_score"].sum()
 
+        # Calculate bonus score for staying at a high position for consecutive weeks
         song_bonuses = {}
         for song_id, occurrences in full_chart.groupby("song_id"):
             streaks = self._get_song_streaks(occurrences)
@@ -67,12 +69,20 @@ class BillboardScorer():
             )
             song_bonuses[song_id] = song_bonus
 
-        scores = {
-            song_id: base_scores[song_id] + song_bonuses[song_id]
-            for song_id in chart_to_score.song_id.unique()
-        }
+        # Create df with songs and their score
+        scored_songs = chart_to_score[~chart_to_score.song_id.duplicated()]
+        scored_songs = (
+            scored_songs[["song", "performer", "chart_debut", "song_id"]]
+            .set_index("song_id")
+            .rename(columns={"song": "title", "performer": "artist"})
+        )
+        scored_songs["year"] = scored_songs.chart_debut.dt.year
 
-        return scores
+        scored_songs["base_score"] = base_scores
+        scored_songs["bonus_score"] = scored_songs.index.map(song_bonuses)
+        scored_songs["billboard_score"] = scored_songs.base_score + scored_songs.bonus_score
+
+        return scored_songs
 
     def _chart_score(self, chart_position: int) -> float:
         return self._raw_score(chart_position) * self._score_scale_factor
@@ -98,6 +108,7 @@ class BillboardScorer():
         for week in df[["chart_position", "previous_week"]].itertuples():
             chart_pos = cast(int, week.chart_position)
 
+            # TODO: add parameter for which positions give bonus points
             if chart_pos > 10 or chart_pos != week.previous_week:
                 if current_streak is not None:
                     # streak ended
