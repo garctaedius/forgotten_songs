@@ -1,3 +1,5 @@
+import re
+
 import pandas as pd
 from spotapi import Song
 
@@ -32,7 +34,6 @@ class SpotifySearcher():
         # year is wrong; sometimes on spotify it can only find one from like 2005
         # special characters, like & -> and
         # information in brackets, like the spotify title will have (radio edit), or the billboard one will say (featuring XYZ)
-        # TODO: probably remove brackets, at least before loose search
 
         query = f'track:"{title}" artist:"{artist}" year:1950-{year+1}'
         results = self.query_song(query)
@@ -44,8 +45,8 @@ class SpotifySearcher():
         tracks = results["data"]["searchV2"]["tracksV2"]["items"]
         if len(tracks) == 0:
             # No track found; try a less restrictive query for results
-            loose_query = f"{title} {artist}"
-            results = self.query_song(loose_query)
+            results = self.loose_query(title, artist)
+
             if results is None:
                 return None, None, None, "song query error"
 
@@ -78,6 +79,14 @@ class SpotifySearcher():
                 attempts += 1
 
         return results
+
+    def loose_query(self, title: str, artist: str):
+        # Strip parentheses from title and artist. reg ex credit to ChatGPT
+        title = re.sub(r'\([^)]*\)', '', title).strip()
+        artist = re.sub(r'\([^)]*\)', '', artist).strip()
+
+        loose_query = f"{title} {artist}"
+        return self.query_song(loose_query)
 
     def get_song_plays(self, track_id: str, max_attempts: int = 2) -> int | None:
         # Attempt gathering song data a certain number of times
