@@ -13,7 +13,7 @@ def score_songs(full_chart: pd.DataFrame, chart_to_score: pd.DataFrame | None = 
 
     # Check if a cached version is available
     try:
-        with open("caches\\scored_songs", "rb") as f:
+        with open("caches\\billboard_scored_songs", "rb") as f:
             scored_songs = pickle.load(f)
 
         # Check that the songs to score are indeed in the cached df
@@ -30,7 +30,7 @@ def score_songs(full_chart: pd.DataFrame, chart_to_score: pd.DataFrame | None = 
     song_scorer = BillboardScorer()
     scored_songs = song_scorer.score_songs(full_chart, chart_to_score)
 
-    with open("caches\\scored_songs", "wb") as f:
+    with open("caches\\billboard_scored_songs", "wb") as f:
         pickle.dump(scored_songs, f)
 
     return scored_songs
