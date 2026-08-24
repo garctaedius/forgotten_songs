@@ -14,25 +14,34 @@ def score_songs(full_chart: pd.DataFrame, chart_to_score: pd.DataFrame | None = 
     # Check if a cached version is available
     try:
         with open("caches\\billboard_scored_songs", "rb") as f:
-            scored_songs = pickle.load(f)
-
-        # Check that the songs to score are indeed in the cached df
-        desired_song_ids = chart_to_score.song_id.unique()
-        if desired_song_ids.isin(scored_songs.index).all():  # type: ignore
-            # Filter away potentially uninteresting songs
-            print("\tFound cached version")
-            return scored_songs.loc[desired_song_ids]
-        else:
-            raise KeyError
+            cached_songs = pickle.load(f)
     except:
         print("\tCould not find cached scores. Calculating scores...")
+        cached_songs = pd.DataFrame()
+
+    if not cached_songs.empty:
+        # Check that the songs to score are indeed in the cached df
+        desired_song_ids = chart_to_score.song_id.unique()
+        if desired_song_ids.isin(cached_songs.index).all():  # type: ignore
+            # Filter away potentially uninteresting songs
+            print("\tFound cached version")
+            return cached_songs.loc[desired_song_ids]
+
+        desired_cached_songs = desired_song_ids[desired_song_ids.isin(cached_songs.index)]  # type: ignore
+        if len(desired_cached_songs) == 0:
+            print("\tCould not find cached scores. Calculating scores...")
+        else:
+            print(f"\tFound cached version for {len(desired_cached_songs)}(/{len(desired_song_ids)}). "
+                  "Scoring the rest.")
+            chart_to_score = chart_to_score[~chart_to_score.song_id.isin(desired_cached_songs)]
 
     song_scorer = BillboardScorer()
     scored_songs = song_scorer.score_songs(full_chart, chart_to_score)
 
-    # TODO: merge with cached version to save both newly calculated scores and old ones
+    # Store cached scores
+    all_scored_songs = pd.concat([cached_songs, scored_songs])
     with open("caches\\billboard_scored_songs", "wb") as f:
-        pickle.dump(scored_songs, f)
+        pickle.dump(all_scored_songs, f)
 
     return scored_songs
 

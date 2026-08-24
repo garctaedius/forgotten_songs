@@ -10,9 +10,11 @@ import config
 
 def find_forgotten_songs(start_date: datetime, end_date: datetime):
     # Gather hot100 data from csv
-    hot100 = pd.read_csv("data/hot_100.csv",
-                         parse_dates=["chart_date", "chart_debut"],
-                         dtype={"previous_week": "Int16"}).sort_values("chart_date")
+    hot100 = pd.read_csv(
+        "data/hot_100.csv",
+        parse_dates=["chart_date", "chart_debut"],
+        dtype={"previous_week": "Int16"}
+    ).drop(columns="chart_url").sort_values("chart_date")
     hot100["previous_week"] = hot100.previous_week.fillna(0)  # simpler than having na values
 
     selected_charts = hot100[(start_date < hot100.chart_date) & (hot100.chart_date < end_date)]
