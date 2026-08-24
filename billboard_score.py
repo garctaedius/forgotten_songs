@@ -30,6 +30,7 @@ def score_songs(full_chart: pd.DataFrame, chart_to_score: pd.DataFrame | None = 
     song_scorer = BillboardScorer()
     scored_songs = song_scorer.score_songs(full_chart, chart_to_score)
 
+    # TODO: merge with cached version to save both newly calculated scores and old ones
     with open("caches\\billboard_scored_songs", "wb") as f:
         pickle.dump(scored_songs, f)
 
@@ -108,7 +109,6 @@ class BillboardScorer():
         for week in df[["chart_position", "previous_week"]].itertuples():
             chart_pos = cast(int, week.chart_position)
 
-            # TODO: add parameter for which positions give bonus points
             if chart_pos > 10 or chart_pos != week.previous_week:
                 if current_streak is not None:
                     # streak ended
