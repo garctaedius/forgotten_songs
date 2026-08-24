@@ -48,7 +48,6 @@ def find_forgotten_songs(start_date: datetime, end_date: datetime):
 
         full_song_info = pd.concat([songs, full_song_info])
 
-        # TODO: load cached version and save that as well, to not overwrite any data
         with open("caches/full_song_info", "wb") as f:
             pickle.dump(full_song_info, f)
 
