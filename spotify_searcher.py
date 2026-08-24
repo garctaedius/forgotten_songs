@@ -72,9 +72,10 @@ class SpotifySearcher():
         # Attempt gathering song a certain number of times
         attempts = 0
         results = None
-        while results is None and attempts < max_attempts:
+        while (results is None) and attempts < max_attempts:
             try:
                 results = self.song.query_songs(query, limit=n_results)
+                results = None if "errors" in results else results
             except:
                 attempts += 1
 
