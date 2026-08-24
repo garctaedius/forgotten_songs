@@ -52,7 +52,20 @@ def find_forgotten_songs(start_date: datetime, end_date: datetime):
             pickle.dump(full_song_info, f)
 
     faulty_songs = full_song_info[full_song_info.spotify_plays == 0]
+    print(f"Found {len(full_song_info)} songs, with:")
+    print(f"\t{(full_song_info.spotify_search_status != "success").sum()} with a faulty spotify search")
+    print(f"\t{(full_song_info.spotify_plays == 0).sum()} without any spotify streams")
+    print(f"\t{full_song_info.spotify_artist.str.lower().str.contains("karaoke").sum()} where a karaoke version "
+          "was found")
+    print(f"\t{full_song_info.spotify_title.str.lower().str.contains("in the style of").sum()} "
+          "with 'in the style of' in the title")
+
     full_song_info = full_song_info[full_song_info.spotify_plays != 0]
+    full_song_info = full_song_info[full_song_info.spotify_search_status == "success"]
+    full_song_info = full_song_info[~full_song_info.spotify_artist.str.lower().str.contains("karaoke")]
+    full_song_info = full_song_info[~full_song_info.spotify_title.str.lower().str.contains("in the style of")]
+    print(f"This leaves {len(full_song_info)} songs with realistic data.")
+    # TODO: also filter out song with "karaoke" in the artist or "(in the style of)" in the title
 
     full_song_info["forgotten_index"] = full_song_info.billboard_score/full_song_info.spotify_plays
     full_song_info.sort_values("forgotten_index", ascending=False)

@@ -35,6 +35,8 @@ class SpotifySearcher():
         # special characters, like & -> and
         # information in brackets, like the spotify title will have (radio edit), or the billboard one will say (featuring XYZ)
 
+        artist, title = self.clean_query(artist, title)
+
         query = f'track:"{title}" artist:"{artist}" year:1950-{year+1}'
         results = self.query_song(query)
 
@@ -82,9 +84,8 @@ class SpotifySearcher():
         return results
 
     def loose_query(self, title: str, artist: str):
-        # Strip parentheses from title and artist. reg ex credit to ChatGPT
+        # Strip parentheses from title. reg ex credit to ChatGPT
         title = re.sub(r'\([^)]*\)', '', title).strip()
-        artist = re.sub(r'\([^)]*\)', '', artist).strip()
 
         loose_query = f"{title} {artist}"
         return self.query_song(loose_query)
@@ -100,3 +101,13 @@ class SpotifySearcher():
                 attempts += 1
 
         return plays
+
+    @staticmethod
+    def clean_query(artist: str, title: str) -> tuple[str, str]:
+        # Strip parentheses from artist. (reg ex credit to ChatGPT)
+        artist = re.sub(r'\([^)]*\)', '', artist).strip()
+
+        # Remove everything after a "feat", or "/" (again, thanks ChatGPT)
+        artist = re.split(r'/|feat', artist, flags=re.IGNORECASE)[0].strip()
+
+        return artist, title
