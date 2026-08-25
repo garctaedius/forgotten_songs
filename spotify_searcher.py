@@ -2,15 +2,17 @@ import re
 
 import pandas as pd
 from spotapi import Song
+from tqdm import tqdm
 
 
 def get_spotify_streams(songs: pd.DataFrame) -> pd.DataFrame:
     spotify_searcher = SpotifySearcher()
 
-    rows = [
-        [song.Index, *spotify_searcher.search_song(song.artist, song.title, song.year)]
-        for song in songs[["title", "artist", "year"]].itertuples()
-    ]
+    rows = []
+    with tqdm(total=len(songs)) as pbar:
+        for song in songs[["title", "artist", "year"]].itertuples():
+            rows.append([song.Index, *spotify_searcher.search_song(song.artist, song.title, song.year)])
+            pbar.update(1)
 
     spotify_results = pd.DataFrame(
         rows,
