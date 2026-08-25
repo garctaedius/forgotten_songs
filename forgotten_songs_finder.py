@@ -26,6 +26,7 @@ def find_forgotten_songs(start_date: datetime, end_date: datetime):
         try:
             with open("caches/full_song_info", "rb") as f:
                 full_song_info = pickle.load(f)
+                full_song_info = full_song_info[full_song_info.spotify_search_status == "success"]
         except:
             full_song_info = pd.DataFrame()
 
